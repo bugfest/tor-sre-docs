@@ -1,0 +1,21 @@
+' Source https://github.com/torproject/torspec/blob/79da008392caed38736c73d839df7aa80628b645/rend-spec-v3.txt#L1493
+
+@startuml
+participant "Hidden Service" as HS
+participant "Tor Node (Introduction Point)"  as IntroPoint
+' database    "HSDir"          as HSDir
+
+HS --> IntroPoint : Builds anonymous circuit
+
+'REG_INTRO_POINT:
+alt #LightBlue REG_INTRO_POINT
+    HS -> IntroPoint : ESTABLISH_INTRO
+    IntroPoint -> IntroPoint : Stores (key, Circuit ID)
+else #Pink Failure
+    IntroPoint -> IntroPoint : destroy circuit
+end
+
+'INTRO_ESTABLISHED:
+IntroPoint -> HS : INTRO_ESTABLISHED
+
+@enduml

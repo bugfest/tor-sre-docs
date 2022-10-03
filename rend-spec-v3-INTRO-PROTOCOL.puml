@@ -1,0 +1,76 @@
+' Source https://github.com/torproject/torspec/blob/79da008392caed38736c73d839df7aa80628b645/rend-spec-v3.txt#L1493
+
+@startuml
+
+participant "Hidden Service" as HS
+participant "Tor Node (Introduction Point)" as IntroPoint
+
+' Intro Point Registration Protocol
+HS --> IntroPoint : Builds anonymous circuit
+
+'REG_INTRO_POINT:
+HS -> IntroPoint : Marks as Introduction Point (IntroProto#1): [cell:ESTABLISH_INTRO]
+HS -> HS : Calculate Descriptor(s)
+
+activate IntroPoint
+
+database "Tor Node (HSDir)" as HSDir
+
+    'HS publishes its descriptor to the HSDir hash ring
+    HS -> HS : Calculate index(es) for the descriptor in the hash ring
+    HS --> HSDir : Builds anonymous circuit
+    HS -> HSDir : Publishes Hiden Service Descriptor(s): [http:POST]
+
+participant "Tor Node (Rendezvous Point)" as RendezvousPoint
+actor "Client" as Client
+
+    ' Lookup hiden service
+    Client --> HSDir : Builds anonymous circuit
+    Client -> HSDir : Retrieve consensus.
+    Client -> Client : Lookup for the HS descriptor
+
+    ' Rendezvous Protocol
+    Client -> Client : Generate Cookie
+    hnote over Client
+        (data:RENDEZVOUS_COOKIE)
+    endhnote
+    Client --> RendezvousPoint : Builds anonymous circuit
+    Client -> RendezvousPoint : Send rendezvous [cell:ESTABLISH_RENDEZVOUS]
+    Activate RendezvousPoint
+
+Client -> Client : Calculate HSDir nodes storing HS Descriptor
+Client --> HSDir : Builds anonymous circuit
+Client -> HSDir : Gets Hidden Service descriptor
+
+Client --> IntroPoint : Builds anonymous circuit
+
+Client -> IntroPoint : Sends introduction request (IntroProto#2): [cell:INTRODUCE1]
+
+IntroPoint -> HS : Relay introduction request (IntroProto#2): [cell:INTRODUCE2]
+
+HS -> IntroPoint : Sends Introduction acknowledge (IntroProto#3): [cell:INTRODUCE_ACK]
+
+IntroPoint -> Client : Relays Introduction acknowledge (IntroProto#3): [cell:INTRODUCE_ACK]
+
+' deactivate IntroPoint <-- commented out because: https://github.com/torproject/torspec/blob/79da008392caed38736c73d839df7aa80628b645/rend-spec-v3.txt#L978
+' Hidden services MUST also keep their introduction circuits alive for as long
+'    as descriptors including those intro points are valid (even if that's after
+'    the time period has changed).
+
+    ' Rendezvous Protocol (cont.)
+    HS --> RendezvousPoint : Builds anonymous circuit
+    HS -> RendezvousPoint : Sends client rendezvous: [cell:RENDEZVOUS1]
+    RendezvousPoint -> Client : Relays Hidden Service rendezvous [cell:RENDEZVOUS2]
+
+activate RendezvousPoint #BlueViolet
+
+    Client -> RendezvousPoint : [cell:RELAY_BEGIN]
+    RendezvousPoint -> HS : [cell:RELAY]
+    HS -> RendezvousPoint : [cell:RELAY_DATA]
+    hnote across : Client and HS talking
+    Client <-> RendezvousPoint : [cell:RELAY_END]
+    RendezvousPoint <-> HS : [cell:RELAY_END]
+
+deactivate RendezvousPoint
+
+@enduml
